@@ -1,0 +1,86 @@
+Program.Sub.ScreenSU.Start
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+'F.Intrinsic.Debug.InvokeDebugger
+'F.Intrinsic.Debug.Stop
+
+'Get Part Number
+'Get Product Line
+'Set the value to the prefix field
+'Get Next available suffix, add runtime, and save back.
+
+F.Intrinsic.Control.CallSub(Getpart)
+F.Intrinsic.Control.CallSub(Unload)
+
+
+
+Program.Sub.Main.End
+
+Program.Sub.GetPart.Start
+V.Local.sQuery.Declare(String)
+V.Local.sPart.Declare(String)
+V.Local.sJob.Declare(String)
+V.Local.sSuffix.Declare(String)
+
+V.Local.sJob.Set(V.Passed.009000)
+V.Local.sSuffix.Set(V.Passed.009001)
+
+
+F.Intrinsic.String.Concat("Select PRODUCT_LINE, QTY_ORDER from JOB_HEADER where JOB='",V.Local.sJob,"' and SUFFIX='",V.Local.sSuffix,"' and PRODUCT_LINE <> ''",V.Local.sQuery)
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sQuery)
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,False)
+	F.Intrinsic.Control.If(V.ODBC.conx!rst.FieldValTrim!PRODUCT_LINE,<>,"")
+
+		F.Intrinsic.Control.Callsub(Productline,"sPL",V.ODBC.conx!rst.FieldVal!PRODUCT_LINE,"iQty",V.ODBC.conx!rst.FieldValLong!QTY_ORDER)
+
+	F.Intrinsic.Control.EndIf
+
+F.Intrinsic.Control.EndIf
+F.ODBC.conx!rst.Close
+
+Program.Sub.GetPart.End
+
+Program.Sub.Unload.Start
+F.ODBC.Connection!conx.Close
+F.Intrinsic.Control.End
+
+Program.Sub.Unload.End
+
+Program.Sub.ProductLine.Start
+V.Local.sQuery.Declare(String)
+V.Local.iSuffix.Declare(Long)
+
+F.Intrinsic.String.Concat("Select * From ATG_3337_PL_Serial_Prefix where Product_Line='",V.Args.sPL,"'",V.Local.sQuery)
+F.ODBC.Connection!conx.OpenLocalRecordsetRW("rstPL",V.Local.sQuery)
+
+F.Intrinsic.Control.If(V.ODBC.conx!rstPL.EOF,=,False)
+
+	V.Passed.000001.Set(V.ODBC.conx!rstPL.FieldVal!Prefix)
+	V.Passed.000003.Set(V.ODBC.conx!rstPL.FieldVal!Suffix)
+
+	F.Intrinsic.Math.Add(V.ODBC.conx!rstPL.FieldValLong!Suffix,V.Args.iQty,V.Local.iSuffix)
+
+	F.ODBC.conx!rstPL.Set!Suffix(V.Local.iSuffix)
+	F.ODBC.conx!rstPL.Update
+	F.ODBC.conx!rstPL.Close
+
+F.Intrinsic.Control.Else
+	F.ODBC.conx!rstPL.Close
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.EndIf
+
+
+Program.Sub.ProductLine.End
+
+Program.Sub.Comments.Start
+${$0$}$ATG_WO_Serial_Prefix$}$JESSICA$}$2/15/2013
+${$3$}$0$}$$}$-1$}$-1$}$$}$1/1/1900$}$For JB0343 screen SERS006, hook 31819, passed variable 009000 and 009001 are the workorder and suffix. Look in the JOB_HEADER table for the part number, then look up the Product Line for that part. Look up the prefix in the custom table for the product line. Set the value to the prefix field, and set the next available suffix value to the suffix field. Add the runtime quantity to the suffix and save back to the custom table for that product line so for the next workorder, the next suffix will be pulled.
+Program.Sub.Comments.End
+
